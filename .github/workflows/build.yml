@@ -12,6 +12,38 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # x64 x86
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+          - target: linux-386
+            goos: linux
+            goarch: 386
+          # arm
+          - target: linux-arm-v5
+            goos: linux
+            goarch: arm
+            goarm: 5
+          - target: linux-arm-v6
+            goos: linux
+            goarch: arm
+            goarm: 6
+          - target: linux-arm-v7
+            goos: linux
+            goarch: arm
+            goarm: 7
+          - target: linux-arm64
+            goos: linux
+            goarch: arm64
+          # riscv
+          - target: linux-riscv64
+            goos: linux
+            goarch: riscv64
+
     steps:
     - uses: actions/checkout@v4
 
@@ -21,18 +53,44 @@ jobs:
         go-version: '1.25'
 
     - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        GOARM: ${{ matrix.goarm }}
+        CGO_ENABLED: 0
       run: |
         go build -o eternal ./cmd/eternal
         go build -o eternal-daemon ./cmd/eternal-daemon
         
     - name: Compress
       run: |
-        zip eternal-amd64.zip eternal eternal-daemon
+        zip eternal-beta-${{ matrix.target }}.zip eternal eternal-daemon
+    
+    - name: Delete binaries
+      run: |
+        rm eternal eternal-daemon
         
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.target }}
+        path: eternal-beta-${{ matrix.target }}.zip
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: dist
+
+    - name: List files
+      run: ls -R dist
+    
     - name: Upload assets
       uses: softprops/action-gh-release@v2
       with:
-        files: eternal-amd64.zip
+        files: dist/**/*
         prerelease: true
         tag_name: beta
 
