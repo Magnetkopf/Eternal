@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"eternal/pkg/config"
-	"eternal/pkg/ipc"
-	"eternal/pkg/process"
+	"eternal/internal/config"
+	"eternal/internal/ipc"
+	"eternal/internal/process"
 )
 
 const socketPath = "/tmp/eternal.sock"

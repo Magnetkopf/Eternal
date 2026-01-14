@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"eternal/pkg/config"
-	"eternal/pkg/ipc"
+	"eternal/internal/config"
+	"eternal/internal/ipc"
 )
 
 const socketPath = "/tmp/eternal.sock"
