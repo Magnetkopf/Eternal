@@ -1,7 +1,9 @@
 package config
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 
@@ -106,4 +108,91 @@ func saveEnabledServices(path string, services []string) error {
 		return fmt.Errorf("failed to write enabled services: %w", err)
 	}
 	return nil
+}
+
+// CreateServiceConfig creates a new service configuration file
+func CreateServiceConfig(path string, cfg ServiceConfig) error {
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("service file already exists")
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal service config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write service config: %w", err)
+	}
+	return nil
+}
+
+// DeleteServiceConfig removes a service configuration file
+func DeleteServiceConfig(path string) error {
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("service file does not exist")
+		}
+		return fmt.Errorf("failed to remove service config: %w", err)
+	}
+	return nil
+}
+
+// DaemonConfig represents global daemon configuration
+type DaemonConfig struct {
+	Token string `yaml:"token"`
+}
+
+// LoadOrGenerateToken loads the auth token from config or generates a new one
+func LoadOrGenerateToken(path string) (string, error) {
+	// Try to read existing
+	data, err := os.ReadFile(path)
+	if err == nil {
+		var cfg DaemonConfig
+		if err := yaml.Unmarshal(data, &cfg); err == nil && cfg.Token != "" {
+			return cfg.Token, nil
+		}
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to read config: %w", err)
+	}
+
+	// Generate new token
+	token := generateRandomString(20)
+	cfg := DaemonConfig{Token: token}
+
+	data, err = yaml.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return "", fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return token, nil
+}
+
+func generateRandomString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	ret := make([]byte, n)
+	for i := 0; i < n; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			ret[i] = letters[0]
+			continue
+		}
+		ret[i] = letters[num.Int64()]
+	}
+	return string(ret)
 }

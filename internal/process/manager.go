@@ -154,33 +154,64 @@ func (m *Manager) StartService(name string) error {
 	return nil
 }
 
-// StopService stops a service
+// StopService stops a service and waits for it to exit
 func (m *Manager) StopService(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	// Use an anonymous function to hold the lock for the critical section only
+	err := func() error {
+		m.mu.Lock()
+		defer m.mu.Unlock()
 
-	proc, exists := m.processes[name]
-	if !exists {
-		return fmt.Errorf("service %s not found", name)
-	}
+		proc, exists := m.processes[name]
+		if !exists {
+			return fmt.Errorf("service %s not found", name)
+		}
 
-	if proc.Status != StatusRunning || proc.Cmd == nil || proc.Cmd.Process == nil {
-		return fmt.Errorf("service %s is not running", name)
-	}
+		if proc.Status != StatusRunning || proc.Cmd == nil || proc.Cmd.Process == nil {
+			return fmt.Errorf("service %s is not running", name)
+		}
 
-	// Try graceful stop (SIGTERM)
-	// Windows doesn't support Signal, but we are on Linux.
-	if runtime.GOOS != "windows" {
-		if err := proc.Cmd.Process.Signal(os.Interrupt); err != nil {
-			// Fallback to Kill
+		// Try graceful stop (SIGTERM)
+		if runtime.GOOS != "windows" {
+			if err := proc.Cmd.Process.Signal(os.Interrupt); err != nil {
+				// Fallback to Kill
+				proc.Cmd.Process.Kill()
+			}
+		} else {
 			proc.Cmd.Process.Kill()
 		}
-	} else {
-		proc.Cmd.Process.Kill()
+		return nil
+	}()
+
+	if err != nil {
+		return err
 	}
 
-	// process status update happens in the Wait() goroutine
-	return nil
+	// Wait for the service to actually stop
+	// The lock is already released by the anonymous function's defer
+	for i := 0; i < 50; i++ {
+		m.mu.RLock()
+		p, exists := m.processes[name]
+		status := p.Status
+		m.mu.RUnlock()
+
+		if !exists {
+			// Removed? Treated as stopped
+			return nil
+		}
+		if status != StatusRunning {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return fmt.Errorf("service failed to stop in time")
+}
+
+// RemoveService removes a service from the manager
+func (m *Manager) RemoveService(name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.processes, name)
 }
 
 // GetStatus returns the status of a service
@@ -239,4 +270,16 @@ func (m *Manager) RestartService(name string) error {
 	}
 
 	return nil
+}
+
+// ListServices returns a snapshot of all managed services and their statuses
+func (m *Manager) ListServices() map[string]ProcessStatus {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string]ProcessStatus)
+	for name, proc := range m.processes {
+		result[name] = proc.Status
+	}
+	return result
 }

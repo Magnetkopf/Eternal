@@ -14,6 +14,10 @@ sudo mv eternal eternal-daemon /usr/local/bin/
 
 ## Usage
 
+Eternal supports CLI and API access.
+
+### CLI
+
 ```bash
 cat <<EOF > ~/.eternal/services/example.yaml
 exec: /bin/sleep 100
@@ -34,6 +38,12 @@ eternal disable example
 # stop now
 eternal stop example
 ```
+
+### API
+
+Server runs on `127.0.0.1:9093`
+
+Check `test/api_v1.sh` for API usage and testing.
 
 ## Configuration
 

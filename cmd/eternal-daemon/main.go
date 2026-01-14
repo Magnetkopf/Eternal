@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"eternal/internal/api"
 	"eternal/internal/config"
 	"eternal/internal/ipc"
 	"eternal/internal/process"
@@ -78,6 +79,17 @@ func main() {
 	}()
 
 	log.Println("Eternal Daemon started, listening on", socketPath)
+
+	// Load Auth Token
+	configFile := filepath.Join(baseDir, "config.yaml")
+	authToken, err := config.LoadOrGenerateToken(configFile)
+	if err != nil {
+		log.Fatalf("Failed to load auth token: %v", err)
+	}
+	log.Printf("Auth token: %s", authToken)
+
+	// Start API Server
+	go api.StartServer(pm, 9093, servicesDir, enabledFile, authToken)
 
 	// 4. Accept Connections
 	for {
