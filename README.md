@@ -1,15 +1,41 @@
 # Eternal
 
-Eternal is a simple process manager for Linux.
+![GitHub License](https://img.shields.io/github/license/Magnetkopf/Eternal)
 
-## Building
+Eternal is a lightweight and flexible Linux process manager
+
+## Get started
+
+### Download
+
+Download the latest binary from [releases](https://github.com/Magnetkopf/Eternal/releases).
+
+> Or build manually:
 
 ```bash
-bash build.sh
+bash build.sh <arch>
+```
+### Install
 
-mv eternal eternal-daemon ~/.local/bin/
-# or
+#### Normal
+```bash
 sudo mv eternal eternal-daemon /usr/local/bin/
+
+sudo cp eternal-daemon.service /etc/systemd/system/
+sudo systemctl enable eternal-daemon
+sudo systemctl start eternal-daemon
+```
+
+#### Container
+
+Here is an example of a Dockerfile:
+
+```Dockerfile
+COPY eternal eternal-daemon /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/eternal /usr/local/bin/eternal-daemon
+
+CMD ["/usr/local/bin/eternal-daemon"]
 ```
 
 ## Usage
@@ -37,13 +63,15 @@ eternal start example
 eternal disable example
 # stop now
 eternal stop example
+# restart now
+eternal restart example
 ```
 
 ### API
 
 Check [api.md](docs/api.md) for API usage and testing.
 
-## Configuration
+### Configuration
 
 Services are stored in `~/.eternal/services/`, add a YAML file for each service.
 
@@ -56,3 +84,5 @@ Example:
 exec: /bin/sleep 100
 dir: /tmp
 ```
+
+Check [configuration.md](docs/configuration.md) for more information.
